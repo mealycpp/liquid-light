@@ -105,9 +105,12 @@
   .controls .pill{padding:9px 18px;border-radius:999px;background:rgba(255,255,255,.04);border:.5px solid rgba(255,255,255,.12);color:var(--dim);cursor:pointer;font-size:12px;transition:all .2s;user-select:none;font-family:var(--sans)}
   .controls .pill:hover{color:var(--paper);border-color:rgba(255,255,255,.22)}
   .controls .pill.on{background:rgba(159,225,203,.14);border-color:rgba(159,225,203,.4);color:var(--teal)}
-  .controls #sound-btn{margin-left:8px;border-left:.5px solid rgba(255,255,255,.18);padding-left:18px;border-radius:999px}
-  .controls #sound-btn #sound-icon{display:inline-block;width:14px;text-align:center;font-size:13px}
-  .controls #sound-btn.on{background:rgba(212,169,88,.12);border-color:rgba(212,169,88,.38);color:var(--gold)}
+
+  .mute-btn{position:absolute;top:32px;right:180px;width:30px;height:30px;border-radius:50%;background:rgba(0,0,0,.45);border:.5px solid rgba(255,255,255,.18);color:var(--paper);cursor:pointer;display:none;align-items:center;justify-content:center;font-size:13px;z-index:6;transition:all .3s;backdrop-filter:blur(8px);font-family:var(--sans);padding:0;line-height:1}
+  .mute-btn.show{display:flex;animation:fadein 1.4s ease}
+  .mute-btn:hover{background:rgba(0,0,0,.65);border-color:rgba(255,255,255,.32)}
+  .mute-btn.muted{color:var(--faint);background:rgba(0,0,0,.5)}
+  @keyframes fadein{from{opacity:0}to{opacity:1}}
 
   .footer{width:100%;max-width:1240px;margin-top:34px;padding-top:22px;border-top:.5px solid rgba(255,255,255,.08);font-size:11px;color:var(--faint);letter-spacing:.05em;line-height:1.7;display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:20px}
   .footer .left{max-width:760px}
@@ -207,6 +210,7 @@
   <div class="feeling" id="fo">this is space. nothing yet.</div>
   <div class="hint" id="hint"></div>
   <div class="dots" id="dts"></div>
+  <button class="mute-btn" id="mute-btn" aria-label="Mute or unmute ambient music" title="Mute ambient music">♫</button>
   <div class="nav">
     <button id="pv">‹ back</button>
     <button id="nx" class="pr">begin ›</button>
@@ -281,9 +285,6 @@
   <button class="pill on" data-mood="cinema">cinema</button>
   <button class="pill" data-mood="lab">lab</button>
   <button class="pill" data-mood="silent">silent</button>
-  <button class="pill" id="sound-btn" aria-label="Toggle ambient sound" title="Toggle ambient sound and interaction chimes">
-    <span id="sound-icon">♪</span> <span id="sound-label">sound off</span>
-  </button>
   <span style="flex:1"></span>
   <button class="pill" id="clear-btn">clear stones</button>
   <button class="pill" id="auto-btn">auto play</button>
@@ -743,27 +744,33 @@ document.addEventListener('keydown', (e) => {
 });
 
 // ============================================================
-// AUDIO ENGINE
-// Generative ambient + interactive chimes. Web Audio API only.
-// Off by default. User must opt in by clicking the sound button.
+// AUDIO ENGINE — spacey ambient generator (Web Audio API)
+// Auto-starts on first user interaction (browser policy compliant).
+// Layers: deep sub-pad · mid drone · slow melodic voice · feedback-delay reverb.
+// Chapter-keyed harmonies; physics-event chimes (chapter chime, stone plink,
+// vortex phonon, material card ping). Zero file size — all synthesis.
 // ============================================================
 const Audio = (function(){
   let ctx = null;
   let masterGain = null;
+  let reverbSend = null;
   let droneNodes = null;
+  let melodyTimer = null;
   let on = false;
   let started = false;
 
-  // chapter-keyed harmonic palettes — sparse, ambient, cinematic
-  // each entry: array of frequencies (Hz) that form a slowly-mixing pad
+  // chapter-keyed palettes: [root, fifth, octave, top, optional bloom]
+  // designed to evoke each chapter's emotional position in the journey
   const palettes = [
-    [55,  82.5,  110,    164.81],            // ch 1: deep, empty space (A1 + harmonics)
-    [55,  82.5,  110,    164.81],            // ch 2: same — ordinary light, still cool
-    [65.41, 98, 130.81, 196],                // ch 3: shift to C — warmer, expectant
-    [65.41, 98, 130.81, 196, 261.63],        // ch 4: add fifth on top — bloom
-    [73.42, 98, 138.59, 207.65],             // ch 5: D minor — dissonant, foreboding
-    [65.41, 82.5, 110, 130.81, 164.81, 196]  // ch 6: full chord — contemplative
+    { root: 55,    chord: [55,  82.5, 110,    164.81], scale: [55, 82.5, 110, 123.47, 164.81, 220] },        // ch1: empty space — A minor pentatonic, deep
+    { root: 55,    chord: [55,  82.5, 110,    164.81], scale: [55, 82.5, 110, 123.47, 164.81, 220] },        // ch2: ordinary light — same, slightly brighter feel
+    { root: 65.41, chord: [65.41, 98, 130.81, 196],    scale: [65.41, 98, 130.81, 146.83, 196, 261.63] },    // ch3: cavity closes — C, warmer, expectant
+    { root: 65.41, chord: [65.41, 98, 130.81, 196, 261.63], scale: [65.41, 98, 130.81, 164.81, 196, 261.63, 329.63] },  // ch4: superfluid — C major bloom
+    { root: 73.42, chord: [73.42, 110, 138.59, 207.65], scale: [73.42, 98, 110, 138.59, 164.81, 207.65, 246.94] },      // ch5: horizon — D minor, dissonant top
+    { root: 65.41, chord: [65.41, 82.5, 110, 130.81, 164.81, 196], scale: [65.41, 82.5, 110, 130.81, 164.81, 196, 246.94] }  // ch6: materials — six-note contemplative
   ];
+
+  let currentScale = palettes[0].scale;
 
   function ensureCtx(){
     if (ctx) return ctx;
@@ -773,6 +780,31 @@ const Audio = (function(){
     masterGain = ctx.createGain();
     masterGain.gain.value = 0;
     masterGain.connect(ctx.destination);
+
+    // feedback-delay reverb: gives the whole piece cinematic depth
+    // a delay node feeding back through a lowpass simulates a long, dark hall
+    const delay = ctx.createDelay(2.5);
+    delay.delayTime.value = 0.42;
+    const feedback = ctx.createGain();
+    feedback.gain.value = 0.55;
+    const reverbLowpass = ctx.createBiquadFilter();
+    reverbLowpass.type = 'lowpass';
+    reverbLowpass.frequency.value = 2400;
+    reverbLowpass.Q.value = 0.7;
+    const wetGain = ctx.createGain();
+    wetGain.gain.value = 0.55;
+
+    // routing: send -> delay -> filter -> wet -> master
+    //         feedback loop: filter -> feedback -> delay
+    reverbSend = ctx.createGain();
+    reverbSend.gain.value = 1;
+    reverbSend.connect(delay);
+    delay.connect(reverbLowpass);
+    reverbLowpass.connect(wetGain);
+    wetGain.connect(masterGain);
+    reverbLowpass.connect(feedback);
+    feedback.connect(delay);
+
     return ctx;
   }
 
@@ -781,39 +813,88 @@ const Audio = (function(){
     const group = ctx.createGain();
     group.gain.value = 1;
     group.connect(masterGain);
+    // also send a portion to reverb
+    const wetTap = ctx.createGain();
+    wetTap.gain.value = 0.35;
+    group.connect(wetTap);
+    wetTap.connect(reverbSend);
 
     const oscs = [];
-    palette.forEach((freq, i) => {
+    const chord = palette.chord;
+
+    // 1. DEEP SUB-BASS at the root (one octave below)
+    {
+      const osc = ctx.createOscillator();
+      osc.type = 'sine';
+      osc.frequency.value = palette.root * 0.5;
+      const g = ctx.createGain();
+      g.gain.value = 0;
+      g.gain.linearRampToValueAtTime(0.08, t + 4);
+      const filt = ctx.createBiquadFilter();
+      filt.type = 'lowpass';
+      filt.frequency.value = 200;
+      // slow LFO
+      const lfo = ctx.createOscillator();
+      lfo.frequency.value = 0.04;
+      const lfoGain = ctx.createGain();
+      lfoGain.gain.value = 0.02;
+      lfo.connect(lfoGain).connect(g.gain);
+      osc.connect(filt).connect(g).connect(group);
+      osc.start(t); lfo.start(t);
+      oscs.push({ osc, g, filt, lfo, lfoGain });
+    }
+
+    // 2. CHORD voices — the main pad
+    chord.forEach((freq, i) => {
       const osc = ctx.createOscillator();
       osc.type = i % 2 === 0 ? 'sine' : 'triangle';
-      // tiny detune for each voice — gives the chord a slow, organic shimmer
-      osc.frequency.value = freq * (1 + (Math.random() - 0.5) * 0.005);
+      osc.frequency.value = freq * (1 + (Math.random() - 0.5) * 0.006);
 
       const g = ctx.createGain();
       g.gain.value = 0;
-      // slow fade in
-      g.gain.linearRampToValueAtTime(0.06 / palette.length, t + 3 + i * 0.6);
+      g.gain.linearRampToValueAtTime(0.055 / chord.length, t + 3 + i * 0.7);
 
-      // gentle low-pass to soften the high partials
       const filt = ctx.createBiquadFilter();
       filt.type = 'lowpass';
-      filt.frequency.value = 800 + Math.random() * 400;
+      filt.frequency.value = 700 + Math.random() * 500;
       filt.Q.value = 0.7;
 
-      // LFO for slow amplitude breathing
       const lfo = ctx.createOscillator();
-      lfo.frequency.value = 0.05 + Math.random() * 0.08;
+      lfo.frequency.value = 0.05 + Math.random() * 0.09;
       const lfoGain = ctx.createGain();
       lfoGain.gain.value = 0.015;
-      lfo.connect(lfoGain);
-      lfoGain.connect(g.gain);
+      lfo.connect(lfoGain).connect(g.gain);
 
       osc.connect(filt).connect(g).connect(group);
-      osc.start(t);
-      lfo.start(t);
+      osc.start(t); lfo.start(t);
       oscs.push({ osc, g, filt, lfo, lfoGain });
     });
-    return { group, oscs };
+
+    // 3. HIGH SHIMMER — a single, very quiet voice an octave above the top of the chord
+    //    Slowly modulated for a "starlight" effect.
+    {
+      const top = chord[chord.length - 1] * 2;
+      const osc = ctx.createOscillator();
+      osc.type = 'sine';
+      osc.frequency.value = top;
+      const g = ctx.createGain();
+      g.gain.value = 0;
+      g.gain.linearRampToValueAtTime(0.022, t + 6);
+      const filt = ctx.createBiquadFilter();
+      filt.type = 'lowpass';
+      filt.frequency.value = 3000;
+      // very slow LFO, wider amplitude
+      const lfo = ctx.createOscillator();
+      lfo.frequency.value = 0.035;
+      const lfoGain = ctx.createGain();
+      lfoGain.gain.value = 0.018;
+      lfo.connect(lfoGain).connect(g.gain);
+      osc.connect(filt).connect(g).connect(group);
+      osc.start(t); lfo.start(t);
+      oscs.push({ osc, g, filt, lfo, lfoGain });
+    }
+
+    return { group, oscs, wetTap };
   }
 
   function fadeOutDrone(d){
@@ -827,16 +908,65 @@ const Audio = (function(){
     }, 2800);
   }
 
+  // Slow sparse melodic voice — a single bell-like tone every 8-14 seconds,
+  // picking notes from the current scale. This is the "spacey melody" that
+  // sits above the pad and gives the music a sense of drift and travel.
+  function scheduleMelody(){
+    if (melodyTimer) clearTimeout(melodyTimer);
+    if (!on) return;
+    const delay = 7000 + Math.random() * 7000;
+    melodyTimer = setTimeout(() => {
+      if (!on) return;
+      const note = currentScale[Math.floor(Math.random() * currentScale.length)] * 2;
+      melodyTone(note);
+      scheduleMelody();
+    }, delay);
+  }
+
+  function melodyTone(freq){
+    if (!ctx || !on) return;
+    const t = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    osc.type = 'sine';
+    osc.frequency.value = freq;
+    const g = ctx.createGain();
+    g.gain.value = 0;
+    g.gain.linearRampToValueAtTime(0.04, t + 0.4);
+    g.gain.linearRampToValueAtTime(0.025, t + 2);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 5);
+
+    // second voice — fifth above, even quieter
+    const osc2 = ctx.createOscillator();
+    osc2.type = 'sine';
+    osc2.frequency.value = freq * 1.5;
+    const g2 = ctx.createGain();
+    g2.gain.value = 0;
+    g2.gain.linearRampToValueAtTime(0.015, t + 0.5);
+    g2.gain.exponentialRampToValueAtTime(0.0001, t + 4);
+
+    // send to both master and reverb for that floating quality
+    const wet = ctx.createGain();
+    wet.gain.value = 0.7;
+    osc.connect(g).connect(masterGain);
+    g.connect(wet); wet.connect(reverbSend);
+    osc2.connect(g2).connect(masterGain);
+    g2.connect(wet);
+
+    osc.start(t); osc2.start(t);
+    osc.stop(t + 5.5); osc2.stop(t + 4.5);
+  }
+
   function setChapter(ch){
     if (!ctx || !on) return;
-    const palette = palettes[Math.max(0, Math.min(palettes.length - 1, ch))];
+    const idx = Math.max(0, Math.min(palettes.length - 1, ch));
+    const palette = palettes[idx];
+    currentScale = palette.scale;
     const fresh = buildDrone(palette);
     if (droneNodes) fadeOutDrone(droneNodes);
     droneNodes = fresh;
   }
 
-  // a single bell-like tone with quick attack, long decay
-  // freq: pitch in Hz; vel: 0..1 loudness
+  // a single bell-like tone with quick attack, long decay — for chapter changes
   function ping(freq, vel){
     if (!ctx || !on) return;
     vel = (vel == null ? 0.5 : vel);
@@ -846,22 +976,26 @@ const Audio = (function(){
     osc.frequency.value = freq;
     const g = ctx.createGain();
     g.gain.value = 0;
-    g.gain.linearRampToValueAtTime(0.18 * vel, t + 0.005);
-    g.gain.exponentialRampToValueAtTime(0.0001, t + 1.6);
+    g.gain.linearRampToValueAtTime(0.16 * vel, t + 0.005);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 2.2);
 
-    // touch of warm harmonic
     const osc2 = ctx.createOscillator();
     osc2.type = 'sine';
     osc2.frequency.value = freq * 2.01;
     const g2 = ctx.createGain();
     g2.gain.value = 0;
     g2.gain.linearRampToValueAtTime(0.05 * vel, t + 0.01);
-    g2.gain.exponentialRampToValueAtTime(0.0001, t + 1.2);
+    g2.gain.exponentialRampToValueAtTime(0.0001, t + 1.5);
 
+    const wet = ctx.createGain();
+    wet.gain.value = 0.8;
     osc.connect(g).connect(masterGain);
+    g.connect(wet); wet.connect(reverbSend);
     osc2.connect(g2).connect(masterGain);
+    g2.connect(wet);
+
     osc.start(t); osc2.start(t);
-    osc.stop(t + 1.7); osc2.stop(t + 1.4);
+    osc.stop(t + 2.3); osc2.stop(t + 1.6);
   }
 
   // a small "drop in water" plink for placing stones
@@ -870,14 +1004,17 @@ const Audio = (function(){
     const t = ctx.currentTime;
     const osc = ctx.createOscillator();
     osc.type = 'sine';
-    osc.frequency.setValueAtTime(720 + Math.random() * 60, t);
+    osc.frequency.setValueAtTime(720 + Math.random() * 80, t);
     osc.frequency.exponentialRampToValueAtTime(180, t + 0.4);
     const g = ctx.createGain();
     g.gain.value = 0;
-    g.gain.linearRampToValueAtTime(0.12, t + 0.005);
-    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.5);
+    g.gain.linearRampToValueAtTime(0.1, t + 0.005);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.6);
+    const wet = ctx.createGain();
+    wet.gain.value = 0.5;
     osc.connect(g).connect(masterGain);
-    osc.start(t); osc.stop(t + 0.6);
+    g.connect(wet); wet.connect(reverbSend);
+    osc.start(t); osc.stop(t + 0.7);
   }
 
   // low "phonon" pulse for vortex sheds
@@ -887,37 +1024,42 @@ const Audio = (function(){
     const osc = ctx.createOscillator();
     osc.type = 'triangle';
     osc.frequency.setValueAtTime(180, t);
-    osc.frequency.exponentialRampToValueAtTime(90, t + 0.6);
+    osc.frequency.exponentialRampToValueAtTime(85, t + 0.7);
     const g = ctx.createGain();
     g.gain.value = 0;
-    g.gain.linearRampToValueAtTime(0.08, t + 0.01);
-    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.8);
+    g.gain.linearRampToValueAtTime(0.07, t + 0.015);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.9);
+    const wet = ctx.createGain();
+    wet.gain.value = 0.6;
     osc.connect(g).connect(masterGain);
-    osc.start(t); osc.stop(t + 0.85);
+    g.connect(wet); wet.connect(reverbSend);
+    osc.start(t); osc.stop(t + 1);
   }
 
   function start(currentChapter){
-    if (started) return;
+    if (started) { return; }
     if (!ensureCtx()) return;
     if (ctx.state === 'suspended') ctx.resume();
     on = true;
     started = true;
     masterGain.gain.cancelScheduledValues(ctx.currentTime);
     masterGain.gain.setValueAtTime(0, ctx.currentTime);
-    masterGain.gain.linearRampToValueAtTime(0.7, ctx.currentTime + 1.5);
+    masterGain.gain.linearRampToValueAtTime(0.62, ctx.currentTime + 2);
     setChapter(currentChapter);
+    scheduleMelody();
   }
 
   function stop(){
     if (!ctx) return;
     on = false;
+    if (melodyTimer) { clearTimeout(melodyTimer); melodyTimer = null; }
     masterGain.gain.cancelScheduledValues(ctx.currentTime);
     masterGain.gain.setValueAtTime(masterGain.gain.value, ctx.currentTime);
-    masterGain.gain.linearRampToValueAtTime(0, ctx.currentTime + 1.2);
+    masterGain.gain.linearRampToValueAtTime(0, ctx.currentTime + 1.4);
     setTimeout(() => {
       if (droneNodes) { fadeOutDrone(droneNodes); droneNodes = null; }
       started = false;
-    }, 1300);
+    }, 1500);
   }
 
   function isOn(){ return on; }
@@ -925,21 +1067,48 @@ const Audio = (function(){
   return { start, stop, setChapter, ping, plink, phonon, isOn };
 })();
 
-// hook the sound toggle button
-const soundBtn = document.getElementById('sound-btn');
-const soundLabel = document.getElementById('sound-label');
-const soundIcon = document.getElementById('sound-icon');
-soundBtn.addEventListener('click', () => {
-  if (Audio.isOn()){
+// ============================================================
+// Auto-start audio on first user interaction.
+// Browsers block audio until a user gesture; the first click anywhere
+// in the page unlocks it. After that, the mute button in the corner
+// gives the user control.
+// ============================================================
+const muteBtn = document.getElementById('mute-btn');
+let muted = false;
+let firstClickHandled = false;
+
+function startAudioFirstTime(){
+  if (firstClickHandled) return;
+  firstClickHandled = true;
+  Audio.start(chapter);
+  setTimeout(() => muteBtn.classList.add('show'), 400);
+}
+
+// Listen for the first interaction anywhere. Once it fires, remove the listener.
+function firstClickListener(){
+  startAudioFirstTime();
+  document.removeEventListener('click', firstClickListener, true);
+  document.removeEventListener('keydown', firstClickListener, true);
+}
+document.addEventListener('click', firstClickListener, true);
+document.addEventListener('keydown', firstClickListener, true);
+
+// Mute button: toggles audio without removing the engine
+muteBtn.addEventListener('click', (e) => {
+  e.stopPropagation();
+  muted = !muted;
+  if (muted){
     Audio.stop();
-    soundBtn.classList.remove('on');
-    soundLabel.textContent = 'sound off';
-    soundIcon.textContent = '♪';
+    muteBtn.classList.add('muted');
+    muteBtn.textContent = '♪';
+    muteBtn.setAttribute('aria-label', 'Unmute ambient music');
+    muteBtn.setAttribute('title', 'Unmute ambient music');
   } else {
     Audio.start(chapter);
-    soundBtn.classList.add('on');
-    soundLabel.textContent = 'sound on';
-    soundIcon.textContent = '♫';
+    muteBtn.classList.remove('muted');
+    muteBtn.textContent = '♫';
+    muteBtn.setAttribute('aria-label', 'Mute ambient music');
+    muteBtn.setAttribute('title', 'Mute ambient music');
   }
 });
 
