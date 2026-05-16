@@ -1,0 +1,37 @@
+cff-version: 1.2.0
+title: "Liquid Light: A Cinematic Simulator of Polariton Superfluidity"
+message: "If you use this simulator in teaching, research, or outreach, please cite it as below."
+type: software
+authors:
+  - family-names: "El-Hadedy"
+    given-names: "Mohamed"
+    name-prefix: "Dr."
+    affiliation: "Director, Reconfigurable Space Computing Lab, California State Polytechnic University, Pomona"
+repository-code: "https://github.com/mealycpp/liquid-light"
+url: "https://mealycpp.github.io/liquid-light/"
+abstract: >
+  A six-chapter cinematic web simulator visualizing the behavior of polariton
+  superfluids in semiconductor microcavities. Designed for non-experts. Built
+  on the foundational experimental literature including Amo et al. (Nature
+  Physics 2009), Lerario et al. (Nature Physics 2017), Nguyen et al. (PRL
+  2015), and Falque et al. (PRL 2025). Demonstrates: (a) the contrast
+  between ordinary light and polariton liquid light, (b) superfluid flow
+  around obstacles below the critical velocity, (c) quantized vortex
+  formation past the critical velocity, (d) the analog acoustic event
+  horizon, and (e) the four major material platforms (GaAs, organic
+  semiconductor, halide perovskite, ultracold atomic BEC). Includes a
+  verified, audited reference compilation.
+keywords:
+  - polariton
+  - superfluidity
+  - liquid light
+  - exciton-polariton condensate
+  - analog gravity
+  - acoustic black hole
+  - Hawking radiation
+  - science visualization
+  - science communication
+  - quantum fluid of light
+license: MIT
+date-released: 2026-05-15
+version: "1.0.0"

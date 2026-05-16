@@ -1,0 +1,742 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Liquid Light — RSCL</title>
+<style>
+  :root {
+    --ink:#08081a; --ink-2:#13132a;
+    --paper:#ece9dd; --dim:rgba(236,233,221,.62);
+    --faint:rgba(236,233,221,.34); --ghost:rgba(236,233,221,.16);
+    --teal:#9fe1cb; --teal-deep:#1d9e75;
+    --amber:#fcde5a; --amber-warm:#ef9f27;
+    --coral:#e8593c; --coral-deep:#b91c1c;
+    --gold:#d4a958;
+    --serif:"Iowan Old Style","Apple Garamond",Baskerville,"Times New Roman",serif;
+    --sans:-apple-system,BlinkMacSystemFont,"Inter","Segoe UI",system-ui,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{min-height:100%;background:var(--ink);color:var(--paper);font-family:var(--sans);-webkit-font-smoothing:antialiased;overflow-x:hidden}
+  body{display:flex;flex-direction:column;align-items:center;padding:22px 14px 48px}
+
+  .strap{width:100%;max-width:1240px;display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;gap:24px;flex-wrap:wrap}
+  .strap .logo{display:flex;align-items:center;gap:16px}
+  .strap .logo .mark{height:54px;width:auto;display:block}
+  .strap .logo .divider{width:1px;height:30px;background:rgba(236,233,221,.18)}
+  .strap .logo .piece{font-family:var(--serif);font-size:18px;font-weight:400;color:var(--paper);letter-spacing:-.01em}
+  .strap .logo .piece .accent{color:var(--teal);font-style:italic}
+  .strap .credit{text-align:right;font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--faint);line-height:1.7}
+  .strap .credit .name{display:block;color:var(--paper);font-weight:400;text-transform:none;letter-spacing:.005em;font-size:13px;font-family:var(--serif);font-style:italic;margin-bottom:3px}
+  .strap .credit .role{display:block}
+
+  .stage{position:relative;width:100%;max-width:1240px;aspect-ratio:16/9;border-radius:20px;overflow:hidden;background:#02030a;transition:background 1.6s ease;box-shadow:0 32px 90px rgba(0,0,0,.55),0 0 0 1px rgba(255,255,255,.04);isolation:isolate}
+  .stage canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+  .vignette{position:absolute;inset:0;pointer-events:none;box-shadow:inset 0 0 200px rgba(0,0,0,.7),inset 0 0 60px rgba(0,0,0,.4);border-radius:20px}
+  .grain{position:absolute;inset:0;pointer-events:none;opacity:.045;background-image:radial-gradient(circle at 50% 50%,rgba(255,255,255,.6) .5px,transparent 1px);background-size:3px 3px}
+
+  .hdr{position:absolute;top:28px;left:34px;right:34px;display:flex;justify-content:space-between;align-items:flex-start;pointer-events:none;z-index:5;gap:24px}
+  .eyebrow{font-size:10px;letter-spacing:.34em;text-transform:uppercase;color:var(--faint);margin-bottom:8px;font-weight:500}
+  .title{font-family:var(--serif);font-size:38px;font-weight:400;color:var(--paper);line-height:1.05;max-width:520px;transition:opacity .65s ease;letter-spacing:-.015em}
+  .subtitle{font-size:14px;color:var(--dim);margin-top:9px;max-width:480px;line-height:1.55;transition:opacity .65s ease;font-style:italic}
+
+  .telemetry{text-align:right;font-variant-numeric:tabular-nums;min-width:140px}
+  .telemetry .row{font-size:10px;color:var(--faint);letter-spacing:.16em;text-transform:uppercase;line-height:1.95}
+  .telemetry .v{color:var(--paper);font-weight:500;margin-left:8px}
+
+  .feeling{position:absolute;left:50%;bottom:108px;transform:translateX(-50%);padding:9px 20px;border-radius:999px;font-size:12.5px;letter-spacing:.04em;pointer-events:none;opacity:0;transition:opacity 1.6s ease,transform 1.6s ease;background:rgba(0,0,0,.42);color:var(--paper);backdrop-filter:blur(10px);border:.5px solid rgba(255,255,255,.08);z-index:4}
+  .feeling.on{opacity:1;transform:translateX(-50%) translateY(-6px)}
+
+  .dots{position:absolute;bottom:32px;left:50%;transform:translateX(-50%);display:flex;gap:9px;z-index:5}
+  .dot{width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,.18);cursor:pointer;transition:all .35s;border:0;padding:0}
+  .dot.on{background:var(--paper);width:28px;border-radius:4px}
+  .dot:hover{background:rgba(255,255,255,.5)}
+
+  .nav{position:absolute;bottom:26px;right:34px;display:flex;gap:8px;z-index:5}
+  .nav button{padding:10px 20px;font-size:12.5px;font-family:var(--sans);background:rgba(255,255,255,.06);border:.5px solid rgba(255,255,255,.16);color:var(--dim);border-radius:999px;cursor:pointer;letter-spacing:.05em;transition:all .25s;font-weight:500}
+  .nav button:hover{background:rgba(255,255,255,.12);color:var(--paper)}
+  .nav button.pr{background:rgba(159,225,203,.16);border-color:rgba(159,225,203,.42);color:var(--teal)}
+  .nav button.pr:hover{background:rgba(159,225,203,.24)}
+
+  .hint{position:absolute;bottom:30px;left:34px;z-index:5;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--faint)}
+  .hint kbd{display:inline-block;padding:2px 7px;margin:0 2px;background:rgba(255,255,255,.08);border:.5px solid rgba(255,255,255,.18);border-radius:4px;font-family:var(--sans);font-size:10px;color:var(--paper)}
+
+  .recipe{position:absolute;inset:0;display:none;align-items:center;justify-content:center;padding:60px 40px 80px;z-index:6;background:radial-gradient(ellipse at 50% 40%,#1a1330 0%,#08081a 70%);overflow:auto}
+  .recipe.on{display:flex}
+  .recipe-inner{max-width:1140px;width:100%}
+  .recipe h2{font-family:var(--serif);font-size:28px;font-weight:400;text-align:center;margin-bottom:8px;color:var(--paper)}
+  .recipe .lead{text-align:center;font-size:13.5px;color:var(--dim);margin-bottom:34px;font-style:italic;max-width:680px;margin-left:auto;margin-right:auto;line-height:1.6}
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px}
+  .card{padding:20px 22px;background:rgba(255,255,255,.04);border:.5px solid rgba(255,255,255,.12);border-radius:14px;cursor:pointer;transition:all .35s;backdrop-filter:blur(6px);min-height:240px;display:flex;flex-direction:column;justify-content:space-between}
+  .card:hover{transform:translateY(-3px);background:rgba(255,255,255,.07);border-color:rgba(255,255,255,.24)}
+  .card .badge{display:inline-block;font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:var(--faint);margin-bottom:10px}
+  .card .mat{font-family:var(--serif);font-size:19px;color:var(--paper);line-height:1.2;margin-bottom:6px}
+  .card .when{font-size:11px;color:var(--dim);margin-bottom:14px;letter-spacing:.04em}
+  .card .desc{font-size:12.5px;color:var(--dim);line-height:1.55;flex:1}
+  .card .cite{font-size:10.5px;color:var(--faint);margin-top:14px;font-style:italic;letter-spacing:.02em}
+  .card.cls{border-color:rgba(159,225,203,.4);background:rgba(159,225,203,.05)}
+  .card.brk{border-color:rgba(252,222,90,.34);background:rgba(252,222,90,.04)}
+  .card.fut{border-color:rgba(159,225,203,.34);background:rgba(159,225,203,.04)}
+  .card.rare{border-color:rgba(212,169,88,.4);background:rgba(212,169,88,.05)}
+  .recipe .close{position:absolute;top:24px;right:30px;background:none;border:.5px solid rgba(255,255,255,.18);color:var(--dim);padding:8px 16px;border-radius:999px;cursor:pointer;font-size:11.5px;letter-spacing:.06em;font-family:var(--sans)}
+  .recipe .close:hover{color:var(--paper);border-color:rgba(255,255,255,.4)}
+
+  .below{width:100%;max-width:1240px;margin-top:26px;display:grid;grid-template-columns:1fr 320px;gap:22px}
+  @media (max-width:820px){.below{grid-template-columns:1fr}.title{font-size:24px}.hdr{left:18px;right:18px;top:18px}.nav{right:18px;bottom:18px}.hint{left:18px;bottom:18px}.dots{bottom:22px}}
+
+  .narrate{padding:28px 32px;background:var(--ink-2);border-radius:16px;font-size:16px;line-height:1.78;color:var(--paper);border:.5px solid rgba(255,255,255,.06);min-height:140px;transition:border-color .8s ease}
+  .narrate .who{font-size:10px;letter-spacing:.24em;text-transform:uppercase;color:var(--faint);margin-bottom:12px;display:flex;align-items:center;gap:10px}
+  .narrate .who::before{content:'';width:20px;height:1px;background:var(--faint)}
+  .narrate .body{transition:opacity .55s ease}
+  .narrate .body em{font-style:normal;color:var(--teal);font-weight:500}
+  .narrate .body .cite{color:var(--amber);font-style:italic;font-size:13px;display:block;margin-top:10px;letter-spacing:.02em}
+
+  .side{padding:22px 24px;background:var(--ink-2);border-radius:16px;border:.5px solid rgba(255,255,255,.06);font-size:13px;color:var(--dim);line-height:1.6}
+  .side h3{font-family:var(--serif);font-size:18px;font-weight:400;color:var(--paper);margin-bottom:10px}
+  .side .row{display:flex;justify-content:space-between;padding:9px 0;border-bottom:.5px dashed rgba(255,255,255,.08);font-size:12px}
+  .side .row:last-of-type{border:0}
+  .side .row .k{color:var(--faint);letter-spacing:.04em}
+  .side .row .v{color:var(--paper);font-variant-numeric:tabular-nums}
+  .side .reveal-btn{display:block;width:100%;margin-top:14px;padding:11px 14px;font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;background:rgba(212,169,88,.1);border:.5px solid rgba(212,169,88,.35);color:var(--gold);border-radius:999px;cursor:pointer;font-family:var(--sans);transition:all .25s}
+  .side .reveal-btn:hover{background:rgba(212,169,88,.18);color:#ecbf6a}
+
+  .controls{width:100%;max-width:1240px;margin-top:20px;display:flex;gap:12px;flex-wrap:wrap;align-items:center;font-size:12px;color:var(--dim)}
+  .controls .label{letter-spacing:.16em;text-transform:uppercase;color:var(--faint);margin-right:4px;font-size:11px}
+  .controls .pill{padding:9px 18px;border-radius:999px;background:rgba(255,255,255,.04);border:.5px solid rgba(255,255,255,.12);color:var(--dim);cursor:pointer;font-size:12px;transition:all .2s;user-select:none;font-family:var(--sans)}
+  .controls .pill:hover{color:var(--paper);border-color:rgba(255,255,255,.22)}
+  .controls .pill.on{background:rgba(159,225,203,.14);border-color:rgba(159,225,203,.4);color:var(--teal)}
+
+  .footer{width:100%;max-width:1240px;margin-top:34px;padding-top:22px;border-top:.5px solid rgba(255,255,255,.08);font-size:11px;color:var(--faint);letter-spacing:.05em;line-height:1.7;display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:20px}
+  .footer .left{max-width:760px}
+  .footer .right{text-align:right;font-style:italic;padding-top:2px}
+</style>
+</head>
+<body>
+
+<div class="strap">
+  <div class="logo">
+    <svg class="mark" viewBox="0 0 360 72" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="RSCL at CPP — Reconfigurable Space Computing Lab">
+      <title>RSCL@CPP — Reconfigurable Space Computing Lab</title>
+      <defs>
+        <radialGradient id="hd-core" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stop-color="#fff7c2" stop-opacity="1"/>
+          <stop offset="35%" stop-color="#fcde5a" stop-opacity="0.9"/>
+          <stop offset="70%" stop-color="#ef9f27" stop-opacity="0.35"/>
+          <stop offset="100%" stop-color="#ef9f27" stop-opacity="0"/>
+        </radialGradient>
+        <radialGradient id="hd-halo" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stop-color="#9fe1cb" stop-opacity="0.4"/>
+          <stop offset="60%" stop-color="#9fe1cb" stop-opacity="0.1"/>
+          <stop offset="100%" stop-color="#9fe1cb" stop-opacity="0"/>
+        </radialGradient>
+        <clipPath id="hd-cavity-clip">
+          <rect x="-2" y="-2" width="60" height="32" rx="2"/>
+        </clipPath>
+      </defs>
+      <g transform="translate(8, 20)">
+        <line x1="0" y1="0" x2="56" y2="0" stroke="#9fe1cb" stroke-width="2" stroke-linecap="round"/>
+        <line x1="0" y1="28" x2="56" y2="28" stroke="#9fe1cb" stroke-width="2" stroke-linecap="round"/>
+        <g clip-path="url(#hd-cavity-clip)">
+          <ellipse cx="28" cy="14" rx="26" ry="10" fill="url(#hd-halo)"/>
+          <g>
+            <animateTransform attributeName="transform" type="rotate" from="0 28 14" to="360 28 14" dur="42s" repeatCount="indefinite"/>
+            <path d="M 28 14 Q 18 8 8 12 Q 14 14 20 14" fill="none" stroke="#9fe1cb" stroke-width="0.8" stroke-linecap="round" opacity="0.6"/>
+            <path d="M 28 14 Q 38 20 48 16 Q 42 14 36 14" fill="none" stroke="#9fe1cb" stroke-width="0.8" stroke-linecap="round" opacity="0.6"/>
+            <path d="M 28 14 Q 22 18 14 18 Q 20 16 24 15" fill="none" stroke="#fcde5a" stroke-width="0.6" stroke-linecap="round" opacity="0.45"/>
+            <path d="M 28 14 Q 34 10 42 10 Q 36 12 32 13" fill="none" stroke="#fcde5a" stroke-width="0.6" stroke-linecap="round" opacity="0.45"/>
+            <circle cx="12" cy="13" r="0.5" fill="#fff" opacity="0.9"/>
+            <circle cx="18" cy="11" r="0.4" fill="#fff" opacity="0.75"/>
+            <circle cx="22" cy="16" r="0.5" fill="#fff" opacity="0.85"/>
+            <circle cx="36" cy="11" r="0.4" fill="#fff" opacity="0.75"/>
+            <circle cx="40" cy="17" r="0.5" fill="#fff" opacity="0.9"/>
+            <circle cx="46" cy="13" r="0.4" fill="#fff" opacity="0.75"/>
+            <circle cx="32" cy="16" r="0.4" fill="#9fe1cb" opacity="0.85"/>
+            <circle cx="24" cy="12" r="0.4" fill="#9fe1cb" opacity="0.85"/>
+            <circle cx="44" cy="11" r="0.35" fill="#fcde5a" opacity="0.95"/>
+            <circle cx="14" cy="16" r="0.35" fill="#fcde5a" opacity="0.95"/>
+          </g>
+          <circle cx="28" cy="14" r="5" fill="url(#hd-core)">
+            <animate attributeName="r" values="4.5;5.5;4.5" dur="5s" repeatCount="indefinite"/>
+          </circle>
+          <circle cx="28" cy="14" r="1.4" fill="#fff7c2">
+            <animate attributeName="opacity" values="0.7;1;0.7" dur="3s" repeatCount="indefinite"/>
+          </circle>
+        </g>
+        <line x1="-4" y1="14" x2="2" y2="14" stroke="#9fe1cb" stroke-width="0.6" opacity="0.45" stroke-linecap="round"/>
+        <line x1="54" y1="14" x2="60" y2="14" stroke="#9fe1cb" stroke-width="0.6" opacity="0.45" stroke-linecap="round"/>
+      </g>
+      <g font-family="-apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', system-ui, sans-serif" font-weight="500">
+        <text x="80" y="42" font-size="28" fill="#ece9dd" letter-spacing="0.5">RSCL</text>
+        <text x="146" y="42" font-size="28" fill="#fcde5a" letter-spacing="0.5">@</text>
+        <text x="167" y="42" font-size="28" fill="#ece9dd" letter-spacing="0.5">CPP</text>
+      </g>
+      <text x="80" y="60" font-family="-apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', system-ui, sans-serif" font-size="9" font-weight="500" fill="#9fe1cb" opacity="0.85" letter-spacing="2.4">RECONFIGURABLE SPACE COMPUTING LAB</text>
+    </svg>
+    <div class="divider"></div>
+    <div class="piece">liquid <span class="accent">light</span></div>
+  </div>
+  <div class="credit">
+    <span class="name">Dr. Mohamed El-Hadedy</span>
+    <span class="role">Director · Reconfigurable Space Computing Lab</span>
+    <span class="role">California State Polytechnic University, Pomona</span>
+  </div>
+</div>
+
+<div class="stage" id="stg">
+  <canvas id="bg"></canvas>
+  <canvas id="fg"></canvas>
+  <div class="vignette"></div>
+  <div class="grain"></div>
+
+  <div class="hdr">
+    <div>
+      <div class="eyebrow" id="ey">Chapter 1 of 6</div>
+      <div class="title" id="tt">Before we begin</div>
+      <div class="subtitle" id="sb">Photons travel in straight lines. Always have. That's about to change.</div>
+    </div>
+    <div class="telemetry">
+      <div class="row">temperature <span class="v" id="tT">300 K</span></div>
+      <div class="row">cavity <span class="v" id="tC">closed</span></div>
+      <div class="row">flow / v<sub>c</sub> <span class="v" id="tF">—</span></div>
+    </div>
+  </div>
+
+  <div class="feeling" id="fo">this is space. nothing yet.</div>
+  <div class="hint" id="hint"></div>
+  <div class="dots" id="dts"></div>
+  <div class="nav">
+    <button id="pv">‹ back</button>
+    <button id="nx" class="pr">begin ›</button>
+  </div>
+
+  <div class="recipe" id="rec">
+    <button class="close" id="rec-close">close ✕</button>
+    <div class="recipe-inner">
+      <h2>What is it made of?</h2>
+      <div class="lead">Liquid light has been built in four kinds of matter. Each one teaches us something different about what light is allowed to be. Click a card to see that recipe in the scene.</div>
+      <div class="cards">
+        <div class="card cls" data-mat="gaas">
+          <div>
+            <div class="badge">the classic</div>
+            <div class="mat">Gallium arsenide at 5 K</div>
+            <div class="when">2009 · Paris and Lecce</div>
+            <div class="desc">A chip of gallium arsenide, two perfect mirrors a wavelength apart, cooled in a cryostat. Where it all started. The cleanest physics, the most measured.</div>
+          </div>
+          <div class="cite">Amo et al., Nature Physics 5, 805 (2009)</div>
+        </div>
+        <div class="card brk" data-mat="org">
+          <div>
+            <div class="badge">the breakthrough</div>
+            <div class="mat">Organic semiconductor at 300 K</div>
+            <div class="when">2017 · Lecce and Montréal</div>
+            <div class="desc">A small organic molecule (TDAF) instead of a semiconductor. The exciton is fifty times more tightly bound. The cryogenics go away. Liquid light walks out of the freezer.</div>
+          </div>
+          <div class="cite">Lerario et al., Nature Physics 13, 837 (2017)</div>
+        </div>
+        <div class="card fut" data-mat="psv">
+          <div>
+            <div class="badge">the modern</div>
+            <div class="mat">Halide perovskite at 300 K</div>
+            <div class="when">2022 · Singapore and Lecce</div>
+            <div class="desc">The same family of materials making next-generation solar cells. Solution-processable. Cheap to fabricate. Room temperature. The platform that might one day live in your phone.</div>
+          </div>
+          <div class="cite">Su et al., Nature Communications 13, 7437 (2022)</div>
+        </div>
+        <div class="card rare" data-mat="rare">
+          <div>
+            <div class="badge">the rare</div>
+            <div class="mat">Atoms colder than space</div>
+            <div class="when">parallel track · Technion, Israel</div>
+            <div class="desc">A million rubidium atoms cooled to a hundred nanokelvin, behaving as one quantum object. Not liquid light — its older cousin. This is where the analog black hole story began.</div>
+          </div>
+          <div class="cite">Steinhauer et al., Nature 569, 688 (2019)</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="below">
+  <div class="narrate" id="nrr">
+    <div class="who">your guide</div>
+    <div class="body" id="nb">Welcome. For the next two minutes, forget what you know about light. <em>Forget the sunbeam through your window. Forget the shadow on the floor.</em> We're going somewhere those rules don't apply — a place physicists built, where light learns to flow like water. Press <em>begin</em> when you're ready to step inside.<span class='cite'>Designed by Dr. Mohamed El-Hadedy, Director, Reconfigurable Space Computing Lab · Cal Poly Pomona</span></div>
+  </div>
+
+  <div class="side">
+    <h3>what's on stage</h3>
+    <div class="row"><span class="k">scene</span><span class="v" id="sd-scene">opening</span></div>
+    <div class="row"><span class="k">light kind</span><span class="v" id="sd-kind">none yet</span></div>
+    <div class="row"><span class="k">cavity</span><span class="v" id="sd-cav">closed</span></div>
+    <div class="row"><span class="k">obstacles</span><span class="v" id="sd-obs">0</span></div>
+    <div class="row"><span class="k">paper</span><span class="v" id="sd-paper">—</span></div>
+    <button class="reveal-btn" id="sd-recipe">what is it made of?</button>
+  </div>
+</div>
+
+<div class="controls">
+  <span class="label">play</span>
+  <button class="pill on" data-mood="cinema">cinema</button>
+  <button class="pill" data-mood="lab">lab</button>
+  <button class="pill" data-mood="silent">silent</button>
+  <span style="flex:1"></span>
+  <button class="pill" id="clear-btn">clear stones</button>
+  <button class="pill" id="auto-btn">auto play</button>
+  <button class="pill" id="restart-btn">restart</button>
+</div>
+
+<div class="footer">
+  <div class="left">
+    <div style="margin-bottom:6px">Every effect you see was measured in a real laboratory. We built the simulator; physicists built the cavity. Verified across ten rounds of citation audit, May 2026.</div>
+    <div style="color:var(--dim);font-style:italic;letter-spacing:.02em">Designed and directed by Dr. Mohamed El-Hadedy · Reconfigurable Space Computing Lab · California State Polytechnic University, Pomona</div>
+  </div>
+  <div class="right">Amo 2009 · Lerario 2017 · Falque 2025</div>
+</div>
+
+<script>
+(function(){
+const TAU = Math.PI * 2;
+const stg = document.getElementById('stg');
+const bg = document.getElementById('bg'), bx = bg.getContext('2d');
+const fg = document.getElementById('fg'), fx = fg.getContext('2d');
+
+function resize(){
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const r = stg.getBoundingClientRect();
+  for (const c of [bg, fg]) { c.width = r.width * dpr; c.height = r.height * dpr; }
+  bx.setTransform(dpr,0,0,dpr,0,0);
+  fx.setTransform(dpr,0,0,dpr,0,0);
+}
+resize();
+new ResizeObserver(resize).observe(stg);
+function W(){ return stg.clientWidth; }
+function H(){ return stg.clientHeight; }
+
+const stars = [];
+for (let i = 0; i < 200; i++) stars.push({
+  x: Math.random(), y: Math.random(),
+  r: Math.random() * 1.2 + .2, tw: Math.random() * TAU,
+  sp: .35 + Math.random() * 1.4, hue: 200 + Math.random() * 60
+});
+
+const ps = [];
+for (let i = 0; i < 420; i++) ps.push({
+  x: Math.random(), y: Math.random(),
+  trail: [], br: .45 + Math.random() * .55,
+  hu: 162 + Math.random() * 30
+});
+
+const rays = [];
+for (let i = 0; i < 48; i++) rays.push({
+  y: (i + .5 + Math.random() * .3) / 48,
+  x: Math.random() * 1.1
+});
+
+const obs = [];
+let chapter = 0, sA = 1, rA = 0, pA = 0, mood = 'cinema', autoOn = false, autoTimer = null;
+let matTheme = 'gaas';
+
+const themes = {
+  gaas: { hueBase: 165, hueShift: 0, name: 'GaAs / 5 K', temp: '5 K', paper: 'Amo 2009' },
+  org:  { hueBase: 175, hueShift: -8, name: 'organic / 300 K', temp: '300 K', paper: 'Lerario 2017' },
+  psv:  { hueBase: 158, hueShift: 6, name: 'perovskite / 300 K', temp: '300 K', paper: 'Su 2022' },
+  rare: { hueBase: 220, hueShift: -10, name: 'rubidium BEC / 100 nK', temp: '100 nK', paper: 'Steinhauer 2019' }
+};
+
+const chapters = [
+{
+  eyebrow: 'Chapter 1 of 6', title: 'Before we begin',
+  sub: "Photons travel in straight lines. Always have. That's about to change.",
+  tT: '300 K', tC: 'closed', tF: '—',
+  feeling: 'this is space. nothing yet.', bg: '#02030a',
+  stars: 1, rays: 0, cav: 0, flow: 0,
+  scene: 'opening', kind: 'none yet', cavside: 'closed', paper: '—',
+  hint: '',
+  narrate: "Welcome. For the next two minutes, forget what you know about light. <em>Forget the sunbeam through your window. Forget the shadow on the floor.</em> We're going somewhere those rules don't apply — a place physicists built, where light learns to flow like water. Press <em>begin</em> when you're ready to step inside.<span class='cite'>Designed by Dr. Mohamed El-Hadedy, Director, Reconfigurable Space Computing Lab · Cal Poly Pomona</span>",
+  nextLabel: 'begin ›'
+},
+{
+  eyebrow: 'Chapter 2 of 6', title: 'Ordinary light',
+  sub: 'A laser fires into the dark. Watch what happens when it meets an obstacle.',
+  tT: '300 K', tC: 'off', tF: '—',
+  feeling: "every shadow you've ever seen lives here", bg: '#0a0a14',
+  stars: .35, rays: 1, cav: 0, flow: 0,
+  scene: 'normal light', kind: 'photons (rays)', cavside: 'off', paper: 'any optics textbook',
+  hint: 'click anywhere in the scene to drop a stone',
+  narrate: "<em>This is light, as everyone has known it.</em> Yellow rays travel in straight lines and cast shadows behind anything they hit. Click anywhere in the scene to drop a stone in their path. Watch the shadow open up behind it. Nothing strange. Nothing surprising. This is the world you grew up in.",
+  nextLabel: 'continue ›'
+},
+{
+  eyebrow: 'Chapter 3 of 6', title: 'The cavity closes',
+  sub: 'Two mirrors a wavelength apart. The light is trapped — and changes.',
+  tT: '5 K', tC: 'engaging', tF: '0.6 v_c',
+  feeling: 'now the light is bound. now it can flow.', bg: '#040a20',
+  stars: .18, rays: 0, cav: 1, flow: .6,
+  scene: 'cavity engaged', kind: 'polaritons forming', cavside: 'on, 5 K', paper: 'Kasprzak 2006',
+  hint: '',
+  narrate: "Physicists close two perfect mirrors a wavelength apart and cool everything to five kelvin. The photons can no longer escape. Inside, they pair with electrons and become <em>polaritons</em> — half-light, half-matter. Millions of them. They share one quantum state. They become a fluid. <em>Liquid light.</em><span class='cite'>Kasprzak et al., Nature 443, 409 (2006) — the founding paper.</span>",
+  nextLabel: 'continue ›'
+},
+{
+  eyebrow: 'Chapter 4 of 6', title: 'Liquid light flows',
+  sub: 'Below the critical velocity, no wake. No shadow. No turbulence.',
+  tT: '5 K', tC: 'open', tF: '0.55 v_c',
+  feeling: 'the moment that made physicists gasp', bg: '#02061a',
+  stars: .12, rays: 0, cav: 1, flow: .55,
+  scene: 'superfluid flow', kind: 'polariton condensate', cavside: 'on, 5 K', paper: 'Amo 2009',
+  hint: 'click to add more stones · shift+click removes',
+  narrate: "Look at the space <em>behind</em> the stone. It's as bright as the space in front. The fluid parted, slipped around, and rejoined as if the stone weren't there. <em>This is the experimental signature of superfluidity in light.</em> A normal fluid would leave a wake. Here there is silence. The condensate is in one shared quantum state — small obstacles cannot scatter it without paying an energy cost it doesn't have. So it flows through.<span class='cite'>Amo et al., Nature Physics 5, 805 (2009).</span>",
+  nextLabel: 'continue ›'
+},
+{
+  eyebrow: 'Chapter 5 of 6', title: 'The horizon forms',
+  sub: 'Past the critical velocity, the fluid breaks. The boundary it makes is mathematically a black hole.',
+  tT: '5 K', tC: 'open', tF: '1.4 v_c',
+  feeling: 'a tabletop black hole, in front of you', bg: '#1a0612',
+  stars: .08, rays: 0, cav: 1, flow: 1.4,
+  scene: 'analog event horizon', kind: 'transsonic flow', cavside: 'on, 5 K', paper: 'Falque 2025',
+  hint: 'the dashed red line is the analog horizon',
+  narrate: "Now the flow exceeds the critical velocity. Vortices spin off behind the stone — quantized whirlpools, each one a real, countable defect. And downstream, the fluid now flows <em>faster than its own waves can travel back upstream.</em> A boundary forms. Ripples on the far side cannot cross it. That boundary obeys the same mathematics — in the regime where Hawking radiation lives — as the event horizon of a real black hole. You are looking at an analog black hole, in a chip, in a lab.<span class='cite'>Falque et al., Physical Review Letters 135, 023401 (2025) — last summer.</span>",
+  nextLabel: 'continue ›'
+},
+{
+  eyebrow: 'Chapter 6 of 6', title: 'What is it made of?',
+  sub: 'Four materials, four ways to build liquid light. Choose one and the scene takes its colors.',
+  tT: '—', tC: '—', tF: '—',
+  feeling: 'click a card to see that recipe', bg: '#0a0820',
+  stars: .15, rays: 0, cav: 1, flow: .55,
+  scene: 'materials catalog', kind: '—', cavside: '—', paper: '—',
+  hint: '',
+  narrate: "This story has been told in four different materials. <em>Gallium arsenide</em> at five kelvin is where it started — the clean, classical platform. <em>Organic semiconductors</em> at three hundred kelvin is where it walked out of the freezer in 2017. <em>Halide perovskites</em> — the same family transforming solar cells — bring it to mass-manufacturable form. And in a parallel lab, <em>a cloud of rubidium atoms</em> colder than deep space tells the same story without any light at all. The materials catalog opens above. Click a card to see that recipe.",
+  nextLabel: 'restart ↺'
+}
+];
+
+function loop(t){
+  const w = W(), h = H(), c = chapters[chapter];
+  sA += (c.stars - sA) * .025;
+  rA += (c.rays - rA) * .025;
+  pA += (c.cav - pA) * .025;
+
+  bx.clearRect(0, 0, w, h);
+  if (sA > .01){
+    for (const s of stars){
+      const ph = Math.sin(t * .0008 * s.sp + s.tw);
+      const a = sA * (.4 + .6 * (.5 + .5 * ph)) * .9;
+      bx.fillStyle = `hsla(${s.hue},60%,92%,${a})`;
+      bx.beginPath();
+      bx.arc(s.x * w, s.y * h, s.r * (.7 + .6 * (.5 + .5 * ph)), 0, TAU);
+      bx.fill();
+    }
+  }
+
+  const tailAlpha = mood === 'silent' ? .38 : (mood === 'lab' ? .12 : .2);
+  fx.fillStyle = `rgba(2,3,10,${tailAlpha})`;
+  fx.fillRect(0, 0, w, h);
+
+  if (rA > .01){
+    for (const r of rays){
+      r.x += .028;
+      if (r.x > 1.15){ r.x = -.05; r.y = Math.random(); }
+      const py = r.y * h;
+      let blocked = false, blockX = r.x * w;
+      for (const o of obs){
+        const cx = o.x * w, cy = o.y * h;
+        if (Math.abs(py - cy) < o.r){
+          const dx = Math.sqrt(o.r * o.r - (py - cy) * (py - cy));
+          const entry = cx - dx;
+          if (r.x * w > entry){ blocked = true; blockX = entry; break; }
+        }
+      }
+      const startX = Math.max(-10, r.x * w - 130);
+      const endX = blocked ? blockX : r.x * w;
+      if (endX <= startX) continue;
+      const g = fx.createLinearGradient(startX, py, endX, py);
+      g.addColorStop(0, `rgba(252,222,90,0)`);
+      g.addColorStop(.6, `rgba(252,222,90,${.55 * rA})`);
+      g.addColorStop(1, `rgba(255,240,160,${.95 * rA})`);
+      fx.strokeStyle = g; fx.lineWidth = 1;
+      fx.beginPath();
+      fx.moveTo(startX, py); fx.lineTo(endX, py);
+      fx.stroke();
+      if (blocked){
+        fx.fillStyle = `rgba(255,180,60,${(.4 + .5 * Math.sin(t * .015 + py)) * rA})`;
+        fx.beginPath();
+        fx.arc(blockX, py, 1.8, 0, TAU);
+        fx.fill();
+      }
+    }
+    for (const o of obs){
+      const cx = o.x * w, cy = o.y * h;
+      fx.fillStyle = `rgba(0,0,0,${.62 * rA})`;
+      fx.beginPath();
+      fx.moveTo(cx, cy - o.r);
+      fx.lineTo(w + 20, cy - o.r * 1.4);
+      fx.lineTo(w + 20, cy + o.r * 1.4);
+      fx.lineTo(cx, cy + o.r);
+      fx.closePath();
+      fx.fill();
+    }
+  }
+
+  if (pA > .01){
+    const u0 = c.flow;
+    const bC = u0 > 1;
+    const chx = bC ? Math.min(1, (u0 - 1) * 1.5) : 0;
+    const theme = themes[matTheme];
+
+    for (const p of ps){
+      let vx = u0 * .013, vy = 0, inside = false;
+      for (const o of obs){
+        const cx = o.x * w, cy = o.y * h;
+        const dx = p.x * w - cx, dy = p.y * h - cy;
+        const r2 = dx * dx + dy * dy, r = Math.sqrt(r2);
+        if (r < o.r + 1){ inside = true; break; }
+        const k = (o.r * o.r) / r2;
+        const cos2 = (dx * dx - dy * dy) / r2;
+        const sin2 = (2 * dx * dy) / r2;
+        vx += -u0 * k * cos2 * .013;
+        vy += -u0 * k * sin2 * .013;
+        if (chx > .01 && dx > -o.r * .2 && r < o.r * 6){
+          const band = Math.exp(-Math.pow(dy / (o.r * 1.6), 2));
+          const decay = Math.exp(-Math.max(0, dx) / (o.r * 6) * .7);
+          const ph = t * .0018 + o.x * 7.3;
+          const a1 = Math.sin(dx * .05 + ph) * Math.cos(dy * .07 + ph * .7);
+          vy += chx * .9 * u0 * a1 * band * decay * .013;
+        }
+      }
+      if (inside){ p.x = -Math.random() * .05; p.y = Math.random(); p.trail.length = 0; continue; }
+      p.x += vx; p.y += vy;
+      p.trail.push({ x: p.x * w, y: p.y * h });
+      if (p.trail.length > 28) p.trail.shift();
+      if (p.x > 1.05 || p.y < -.05 || p.y > 1.05){
+        p.x = -Math.random() * .05; p.y = Math.random(); p.trail.length = 0;
+      }
+    }
+
+    fx.globalCompositeOperation = 'lighter';
+    for (const p of ps){
+      if (p.trail.length < 2) continue;
+      const ln = p.trail.length;
+      for (let i = 1; i < ln; i++){
+        const a = p.trail[i - 1], b = p.trail[i], tp = i / ln;
+        const baseHue = theme.hueBase + theme.hueShift + (p.hu - 178) * .4;
+        const hu = baseHue + (bC ? -32 * Math.min(1, (u0 - 1) * 2) : 0);
+        const sat = matTheme === 'rare' ? 50 : 78;
+        fx.strokeStyle = `hsla(${hu},${sat}%,${56 + tp * 22}%,${tp * p.br * .62 * pA})`;
+        fx.lineWidth = .8 + tp * .8;
+        fx.beginPath();
+        fx.moveTo(a.x, a.y);
+        fx.lineTo(b.x, b.y);
+        fx.stroke();
+      }
+      const head = p.trail[ln - 1];
+      const headHu = theme.hueBase + theme.hueShift + (bC ? -25 : 0);
+      const headSat = matTheme === 'rare' ? 55 : 88;
+      fx.fillStyle = `hsla(${headHu},${headSat}%,82%,${.55 * p.br * pA})`;
+      fx.beginPath();
+      fx.arc(head.x, head.y, 1.2, 0, TAU);
+      fx.fill();
+    }
+    fx.globalCompositeOperation = 'source-over';
+
+    for (const o of obs){
+      const cx = o.x * w, cy = o.y * h;
+      const g = fx.createRadialGradient(cx - o.r * .3, cy - o.r * .3, 1, cx, cy, o.r);
+      g.addColorStop(0, `rgba(40,40,46,${pA})`);
+      g.addColorStop(1, `rgba(6,6,12,${pA})`);
+      fx.fillStyle = g;
+      fx.beginPath();
+      fx.arc(cx, cy, o.r, 0, TAU);
+      fx.fill();
+      const pl = .5 + .5 * Math.sin(t * .0015 + o.x * 4);
+      fx.strokeStyle = `rgba(159,225,203,${(.05 + pl * .07) * pA})`;
+      fx.beginPath();
+      fx.arc(cx, cy, o.r + 4 + pl * 2, 0, TAU);
+      fx.stroke();
+    }
+
+    if (u0 > 1.3){
+      const o = obs[0] || { x: .55, y: .5, r: 22 };
+      const xLine = o.x * w + o.r + 10;
+      fx.strokeStyle = `rgba(232,89,60,${.55 * pA})`;
+      fx.lineWidth = 1.5;
+      fx.setLineDash([6, 4]);
+      fx.beginPath();
+      fx.moveTo(xLine, o.y * h - h * .36);
+      fx.lineTo(xLine, o.y * h + h * .36);
+      fx.stroke();
+      fx.setLineDash([]);
+      fx.fillStyle = `rgba(232,89,60,${.75 * pA})`;
+      fx.font = '500 10px -apple-system, sans-serif';
+      fx.fillText('analog horizon', xLine + 10, o.y * h - h * .32);
+    }
+  }
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+
+const eyE = document.getElementById('ey');
+const ttE = document.getElementById('tt');
+const sbE = document.getElementById('sb');
+const tTE = document.getElementById('tT');
+const tCE = document.getElementById('tC');
+const tFE = document.getElementById('tF');
+const foE = document.getElementById('fo');
+const nbE = document.getElementById('nb');
+const hintE = document.getElementById('hint');
+const dtsE = document.getElementById('dts');
+const sdScene = document.getElementById('sd-scene');
+const sdKind = document.getElementById('sd-kind');
+const sdCav = document.getElementById('sd-cav');
+const sdObs = document.getElementById('sd-obs');
+const sdPaper = document.getElementById('sd-paper');
+const recE = document.getElementById('rec');
+const nxE = document.getElementById('nx');
+
+function applyChapter(){
+  const c = chapters[chapter];
+  ttE.style.opacity = 0; sbE.style.opacity = 0; nbE.style.opacity = 0;
+  setTimeout(() => {
+    eyE.textContent = c.eyebrow;
+    ttE.textContent = c.title;
+    sbE.textContent = c.sub;
+    tTE.textContent = c.tT;
+    tCE.textContent = c.tC;
+    tFE.textContent = c.tF;
+    nbE.innerHTML = c.narrate;
+    stg.style.background = c.bg;
+    if (chapter >= 2 && chapter < 6 && obs.length === 0) obs.push({ x: .52, y: .5, r: 24 });
+    ttE.style.opacity = 1; sbE.style.opacity = 1; nbE.style.opacity = 1;
+    foE.textContent = c.feeling;
+    foE.classList.remove('on');
+    setTimeout(() => foE.classList.add('on'), 420);
+    setTimeout(() => foE.classList.remove('on'), 5400);
+    hintE.innerHTML = c.hint ? c.hint.replace('click', '<kbd>click</kbd>').replace('shift+click', '<kbd>shift+click</kbd>') : '';
+    sdScene.textContent = c.scene;
+    sdKind.textContent = c.kind;
+    sdCav.textContent = c.cavside;
+    sdObs.textContent = obs.length;
+    sdPaper.textContent = c.paper;
+    nxE.textContent = c.nextLabel;
+    if (chapter === 5) {
+      setTimeout(() => recE.classList.add('on'), 600);
+    } else {
+      recE.classList.remove('on');
+    }
+    renderDots();
+  }, 340);
+}
+
+function renderDots(){
+  dtsE.innerHTML = '';
+  chapters.forEach((_, i) => {
+    const d = document.createElement('button');
+    d.className = 'dot' + (i === chapter ? ' on' : '');
+    d.addEventListener('click', () => { chapter = i; applyChapter(); });
+    dtsE.appendChild(d);
+  });
+}
+renderDots();
+
+nxE.addEventListener('click', () => {
+  if (chapter < chapters.length - 1) { chapter++; applyChapter(); }
+  else { chapter = 0; obs.length = 0; matTheme = 'gaas'; applyChapter(); }
+});
+document.getElementById('pv').addEventListener('click', () => {
+  if (chapter > 0) { chapter--; applyChapter(); }
+});
+
+stg.addEventListener('click', (e) => {
+  if (chapter < 1 || chapter === 5) return;
+  if (recE.classList.contains('on')) return;
+  const r = stg.getBoundingClientRect();
+  const x = (e.clientX - r.left) / r.width;
+  const y = (e.clientY - r.top) / r.height;
+  if (e.shiftKey){
+    let best = -1, bestD = .04;
+    for (let i = 0; i < obs.length; i++){
+      const d = Math.hypot(obs[i].x - x, obs[i].y - y);
+      if (d < bestD){ bestD = d; best = i; }
+    }
+    if (best >= 0) obs.splice(best, 1);
+  } else if (obs.length < 8) {
+    obs.push({ x, y, r: 18 + Math.random() * 12 });
+  }
+  sdObs.textContent = obs.length;
+});
+
+document.getElementById('clear-btn').addEventListener('click', () => {
+  obs.length = 0;
+  if (chapter >= 2 && chapter < 6) obs.push({ x: .52, y: .5, r: 24 });
+  sdObs.textContent = obs.length;
+});
+
+document.getElementById('restart-btn').addEventListener('click', () => {
+  chapter = 0; obs.length = 0; matTheme = 'gaas';
+  if (autoOn) { autoOn = false; document.getElementById('auto-btn').classList.remove('on'); clearInterval(autoTimer); }
+  applyChapter();
+});
+
+document.querySelectorAll('.controls .pill[data-mood]').forEach(p => {
+  p.addEventListener('click', () => {
+    document.querySelectorAll('.controls .pill[data-mood]').forEach(x => x.classList.remove('on'));
+    p.classList.add('on');
+    mood = p.dataset.mood;
+  });
+});
+
+const autoBtn = document.getElementById('auto-btn');
+autoBtn.addEventListener('click', () => {
+  autoOn = !autoOn;
+  autoBtn.classList.toggle('on', autoOn);
+  if (autoOn){
+    autoTimer = setInterval(() => {
+      if (chapter < chapters.length - 1) { chapter++; applyChapter(); }
+      else { chapter = 0; obs.length = 0; matTheme = 'gaas'; applyChapter(); }
+    }, 12000);
+  } else {
+    clearInterval(autoTimer);
+  }
+});
+
+document.getElementById('sd-recipe').addEventListener('click', () => {
+  recE.classList.add('on');
+});
+document.getElementById('rec-close').addEventListener('click', () => {
+  recE.classList.remove('on');
+});
+
+document.querySelectorAll('.card[data-mat]').forEach(card => {
+  card.addEventListener('click', () => {
+    matTheme = card.dataset.mat;
+    const t = themes[matTheme];
+    tTE.textContent = t.temp;
+    sdPaper.textContent = t.paper;
+    sdKind.textContent = t.name;
+    recE.classList.remove('on');
+    if (chapter === 5){
+      chapter = 3;
+      applyChapter();
+    }
+    foE.textContent = `now showing: ${t.name}`;
+    foE.classList.remove('on');
+    setTimeout(() => foE.classList.add('on'), 200);
+    setTimeout(() => foE.classList.remove('on'), 4400);
+  });
+});
+
+document.addEventListener('keydown', (e) => {
+  if (recE.classList.contains('on')) {
+    if (e.key === 'Escape') recE.classList.remove('on');
+    return;
+  }
+  if (e.key === 'ArrowRight'){ if (chapter < chapters.length - 1) { chapter++; applyChapter(); } }
+  if (e.key === 'ArrowLeft'){ if (chapter > 0) { chapter--; applyChapter(); } }
+  if (e.key === 'r' || e.key === 'R'){ obs.length = 0; if (chapter >= 2 && chapter < 6) obs.push({ x: .52, y: .5, r: 24 }); sdObs.textContent = obs.length; }
+});
+
+applyChapter();
+})();
+</script>
+</body>
+</html>
